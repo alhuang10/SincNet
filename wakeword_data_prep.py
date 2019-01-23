@@ -7,9 +7,11 @@ import pandas as pd
 
 from generate_vad_mapping import get_vad_mapping
 
-CSV_PATHS = ['wakeword_data/train/time_align_20180306.csv',
-             'wakeword_data/train/time_align_20180319.csv',
-             'wakeword_data/train/time_align_20180402.csv']
+CSV_PATHS = ['/mnt/extradrive2/wakeword_data/train/time_align_20180306.csv',
+             '/mnt/extradrive2/wakeword_data/train/time_align_20180319.csv',
+             '/mnt/extradrive2/wakeword_data/train/time_align_20180402.csv',
+             '/mnt/extradrive2/wakeword_data/test/time_align_20180306.csv',
+             '/mnt/extradrive2/wakeword_data/test/time_align_20180402.csv']
 
 
 def ig_f(dir, files):

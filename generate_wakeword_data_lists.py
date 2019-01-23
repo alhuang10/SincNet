@@ -21,9 +21,12 @@ def get_all_files_recursive(root_dir):
 
 
 def get_hey_webex(file_set):
-    hey_webex_files = [x for x in file_set if 'hey_webex' in x]
-    hey_webex_train = [x for x in hey_webex_files if '/train/' in x]
-    hey_webex_test = [x for x in hey_webex_files if '/test/' in x]
+    """
+    Gets filepaths of all files that have hey_webex
+    """
+    hey_webex_files = [x for x in file_set if 'hey_webex' in x and ".wav" in x]
+    hey_webex_train = [x for x in hey_webex_files if 'train/' in x]
+    hey_webex_test = [x for x in hey_webex_files if 'test/' in x]
 
     with open(os.path.join(OUTPUT_DIR, 'hey_webex_all.txt'), 'w') as f:
         for item in hey_webex_files:
@@ -39,9 +42,12 @@ def get_hey_webex(file_set):
 
 
 def get_okay_webex(file_set):
-    okay_webex_files = [x for x in file_set if 'okay_webex' in x]
-    okay_webex_train = [x for x in okay_webex_files if '/train/' in x]
-    okay_webex_test = [x for x in okay_webex_files if '/test/' in x]
+    """
+    Gets filepaths of all files that have okay_webex
+    """
+    okay_webex_files = [x for x in file_set if 'okay_webex' in x and ".wav" in x]
+    okay_webex_train = [x for x in okay_webex_files if 'train/' in x]
+    okay_webex_test = [x for x in okay_webex_files if 'test/' in x]
 
     with open(os.path.join(OUTPUT_DIR, 'okay_webex_all.txt'), 'w') as f:
         for item in okay_webex_files:
@@ -74,11 +80,16 @@ def genererate_label_dict(file_set):
             else:
                 label_dict[f] = speaker_to_id[speaker_id]
 
-    print(len(label_dict))
     np.save("wakeword_file_lists/wakeword_labels.npy", label_dict)
 
 
 if __name__ == '__main__':
-    file_set = get_all_files_recursive('wakeword_data')
+    if not os.path.exists(OUTPUT_DIR):
+        os.mkdir(OUTPUT_DIR)
+
+    file_set = get_all_files_recursive('/mnt/extradrive2/wakeword_data/')
+
+    get_okay_webex(file_set)
+    get_hey_webex(file_set)
 
     genererate_label_dict(file_set)
