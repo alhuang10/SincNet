@@ -40,6 +40,8 @@ def get_hey_webex(file_set):
         for item in hey_webex_test:
             f.write("%s\n" % item)
 
+    generate_label_dict(hey_webex_files, "hey_webex_label_dict.npy")
+
 
 def get_okay_webex(file_set):
     """
@@ -61,8 +63,15 @@ def get_okay_webex(file_set):
         for item in okay_webex_test:
             f.write("%s\n" % item)
 
+    generate_label_dict(okay_webex_files, "okay_webex_label_dict.npy")
 
-def genererate_label_dict(file_set):
+
+def get_unique_items(label_dict_file):
+    label_dict = np.load(label_dict_file).item()
+    return len(set(list(label_dict.values())))
+
+
+def generate_label_dict(file_set, dict_name):
 
     label_dict = {}
 
@@ -80,7 +89,7 @@ def genererate_label_dict(file_set):
             else:
                 label_dict[f] = speaker_to_id[speaker_id]
 
-    np.save("wakeword_file_lists/wakeword_labels.npy", label_dict)
+    np.save(os.path.join(OUTPUT_DIR, dict_name), label_dict)
 
 
 if __name__ == '__main__':
@@ -92,4 +101,4 @@ if __name__ == '__main__':
     get_okay_webex(file_set)
     get_hey_webex(file_set)
 
-    genererate_label_dict(file_set)
+    # generate_label_dict(file_set)

@@ -13,8 +13,10 @@ def get_vad_mapping(csv_paths):
         end_frames = list(time_align_df.end_1_vad)
 
         for f, start, end in zip(filenames, start_frames, end_frames):
-            if f in vad_mapping:
-                raise Exception("Repeat filename")
-            vad_mapping[f] = (start, end)
+            # Some starts are negative, which messes up signal slicing
+            start = max(0, start)
+
+            if f not in vad_mapping:
+                vad_mapping[f] = (start, end)
 
     return vad_mapping

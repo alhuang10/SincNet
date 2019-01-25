@@ -10,6 +10,9 @@ from generate_vad_mapping import get_vad_mapping
 CSV_PATHS = ['/mnt/extradrive2/wakeword_data/train/time_align_20180306.csv',
              '/mnt/extradrive2/wakeword_data/train/time_align_20180319.csv',
              '/mnt/extradrive2/wakeword_data/train/time_align_20180402.csv',
+             '/mnt/extradrive2/wakeword_data/train/time_align_Clean.csv',
+             '/mnt/extradrive2/wakeword_data/train/time_align_Roomkit.csv',
+             '/mnt/extradrive2/wakeword_data/train/time_align_Sparkvoice.csv',
              '/mnt/extradrive2/wakeword_data/test/time_align_20180306.csv',
              '/mnt/extradrive2/wakeword_data/test/time_align_20180402.csv']
 
@@ -40,6 +43,8 @@ if __name__ == '__main__':
     with open(file_list, 'r') as f:
         filepaths = f.read().splitlines()
 
+    missing_files = []
+
     for filepath in filepaths:
 
         raw_filepath = os.path.join(in_folder, filepath)
@@ -53,6 +58,7 @@ if __name__ == '__main__':
 
         if filename not in vad_mapping:
             missing_count += 1
+            missing_files.append(filename)
         else:
             # Approximate start and end of the audio
             start_ind, end_ind = vad_mapping[filename]
@@ -62,9 +68,12 @@ if __name__ == '__main__':
             # Remove silences
             signal = signal[start_ind:end_ind]
 
+            assert len(signal) != 0
+
             normalized_filepath = os.path.join(out_folder, filepath)
             sf.write(normalized_filepath, signal, sample_rate)
 
             valid_count += 1
-
         print(f"Valid: {valid_count}, Missing: {missing_count}")
+
+    print("Missing Files:", missing_files)
