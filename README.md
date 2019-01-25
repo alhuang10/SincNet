@@ -1,3 +1,12 @@
+# Wakeword Data Preprocessing Steps
+
+1. Run ```generate_wakeword_data_lists.py``` to get test/train/all lists of files with "hey_webex" and "okay_webex". Create new functions for getting different phrases as well as a label dictionary mapping file to a unique ID for each speaker.
+
+2. Run ```wakeword_data_prep.py``` to perform normalization and trim the beginning and end silence for each sound file. Must specify the time_align files to use in the CSV_PATHS variable.
+
+3. Modify the .cfg file, in particular the directories in the [data] section. Also must change the **class_lay** to match the number of unique speakers.
+
+4. Run speaker_id.py to train the network, specifying the cfg file.
 
 # SincNet
 SincNet is a neural architecture for processing **raw audio samples**. It is a novel Convolutional Neural Network (CNN) that encourages the first convolutional layer to discover more **meaningful filters**. SincNet is based on parametrized sinc functions, which implement band-pass filters.
