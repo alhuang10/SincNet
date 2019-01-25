@@ -67,6 +67,7 @@ pt_file = options.pt_file
 class_dict_file = options.lab_dict
 data_folder = options.data_folder
 output_folder = options.output_folder
+tracking_file = options.tracking_file
 
 # [windowing]
 fs = int(options.fs)
@@ -200,7 +201,7 @@ timestamp = time.time()
 lowest_dev_loss = float("inf")
 
 # Delete previous res.res file
-tracking_text_file = os.path.join(output_folder, "res.res")
+tracking_text_file = os.path.join(output_folder, tracking_file)
 if os.path.exists(tracking_text_file):
     os.remove(tracking_text_file)
 
@@ -219,9 +220,6 @@ for epoch in range(N_epochs):
     print(f"Epoch: {epoch}. Runtime: {runtime}")
 
     for i in range(N_batches):
-
-        print(f"Epoch: {epoch} - Batch: {i}")
-
         [inp, lab] = create_batches_rnd(batch_size, data_folder, wav_lst_tr, snt_tr, wlen, lab_dict, 0.2)
         pout = DNN2_net(DNN1_net(CNN_net(inp)))
 
@@ -328,6 +326,7 @@ for epoch in range(N_epochs):
 
         # Save model with lowest dev_loss
         if loss_tot_dev < lowest_dev_loss:
+            print("Saving lowest loss model on epoch" + epoch)
             lowest_dev_loss = loss_tot_dev
             torch.save(checkpoint, os.path.join(output_folder, f'epoch_{epoch}_model_lowest_dev_loss.pkl'))
 
