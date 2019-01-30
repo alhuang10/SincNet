@@ -57,6 +57,7 @@ def read_conf():
     options.fc_use_batchnorm = Config.get('dnn', 'fc_use_batchnorm')
     options.fc_use_laynorm = Config.get('dnn', 'fc_use_laynorm')
     options.fc_act = Config.get('dnn', 'fc_act')
+    options.fc_return_hidden_layer = Config.get('dnn', 'fc_return_hidden_layer')
 
     # [class]
     options.class_lay = Config.get('class', 'class_lay')

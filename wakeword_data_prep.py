@@ -28,6 +28,18 @@ def copy_folder(in_folder, out_folder):
         shutil.copytree(in_folder, out_folder, ignore=ig_f)
 
 
+def down_sample(signal):
+    """
+    Downsampling 48000k to 16000k
+    :param signal:
+    :return:
+    """
+    downsampled_signal = [x for i,x in enumerate(signal) if i%3 == 0]
+    downsampled_signal = np.array(downsampled_signal)
+
+    return downsampled_signal
+
+
 if __name__ == '__main__':
     missing_count = 0
     valid_count = 0
@@ -51,6 +63,11 @@ if __name__ == '__main__':
         [signal, sample_rate] = sf.read(raw_filepath)
         signal = signal.astype(np.float64)
 
+        # Down sample to 16000
+        if sample_rate == 48000:
+            signal = down_sample(signal)
+            sample_rate = 16000
+
         # Signal normalization
         signal = signal / np.abs(np.max(signal))
 
@@ -69,6 +86,7 @@ if __name__ == '__main__':
             signal = signal[start_ind:end_ind]
 
             assert len(signal) != 0
+            assert sample_rate == 16000
 
             normalized_filepath = os.path.join(out_folder, filepath)
             sf.write(normalized_filepath, signal, sample_rate)

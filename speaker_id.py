@@ -60,6 +60,7 @@ def create_batches_rnd(batch_size, data_folder, wav_lst, N_snt, wlen, lab_dict, 
 # Reading cfg file
 options = read_conf()
 
+
 # [data]
 tr_lst = options.tr_lst
 te_lst = options.te_lst
@@ -93,6 +94,7 @@ fc_use_batchnorm_inp = str_to_bool(options.fc_use_batchnorm_inp)
 fc_use_batchnorm = list(map(str_to_bool, options.fc_use_batchnorm.split(',')))
 fc_use_laynorm = list(map(str_to_bool, options.fc_use_laynorm.split(',')))
 fc_act = list(map(str, options.fc_act.split(',')))
+fc_return_hidden_layer = str_to_bool(options.fc_return_hidden_layer)
 
 # [class]
 class_lay = list(map(int, options.class_lay.split(',')))
@@ -159,7 +161,8 @@ CNN_net.cuda()
 # Loading label dictionary
 lab_dict = np.load(class_dict_file).item()
 
-assert class_lay[0] == len(set(list(lab_dict.values()))), "class_lay param must be equal to number of unique speakers"
+assert class_lay[0] == len(set(list(lab_dict.values()))), \
+    f"class_lay param must be equal to number of unique speakers: {len(set(list(lab_dict.values())))}"
 
 DNN1_arch = {'input_dim': CNN_net.out_dim,
              'fc_lay': fc_lay,
@@ -169,6 +172,7 @@ DNN1_arch = {'input_dim': CNN_net.out_dim,
              'fc_use_laynorm_inp': fc_use_laynorm_inp,
              'fc_use_batchnorm_inp': fc_use_batchnorm_inp,
              'fc_act': fc_act,
+             'fc_return_hidden_layer': fc_return_hidden_layer,
              }
 
 DNN1_net = MLP(DNN1_arch)
@@ -198,7 +202,7 @@ optimizer_DNN1 = optim.RMSprop(DNN1_net.parameters(), lr=lr, alpha=0.95, eps=1e-
 optimizer_DNN2 = optim.RMSprop(DNN2_net.parameters(), lr=lr, alpha=0.95, eps=1e-8)
 
 timestamp = time.time()
-lowest_dev_loss = float("inf")
+lowest_sentence_error_rate = float("inf")
 
 # Delete previous res.res file
 tracking_text_file = os.path.join(output_folder, tracking_file)
@@ -213,10 +217,10 @@ for epoch in range(N_epochs):
     DNN2_net.train()
 
     loss_sum = 0
-    err_sum = 0
+    frame_errors_train = 0
 
     runtime = time.time() - timestamp
-    timestamp = runtime
+    timestamp = time.time()
     print(f"Epoch: {epoch}. Runtime: {runtime}")
 
     for i in range(N_batches):
@@ -237,98 +241,95 @@ for epoch in range(N_epochs):
         optimizer_DNN2.step()
 
         loss_sum = loss_sum + loss.detach()
-        err_sum = err_sum + err.detach()
+        frame_errors_train = frame_errors_train + err.detach()
 
-    loss_tot = loss_sum / N_batches
-    err_tot = err_sum / N_batches
-
+    average_loss_train = loss_sum / N_batches
+    frame_error_rate_train = frame_errors_train / N_batches
 
     # Full Validation
     if epoch % N_eval_epoch == 0:
-
-        runtime = time.time() - timestamp
-        timestamp = runtime
 
         CNN_net.eval()
         DNN1_net.eval()
         DNN2_net.eval()
         test_flag = 1
         loss_sum = 0
-        err_sum = 0
-        err_sum_snt = 0
+        frame_errors_dev = 0
+        sentence_errors = 0
 
         with torch.no_grad():
+            # Go through each sound file in the test set
             for i in range(snt_te):
-
-                # [fs,signal]=scipy.io.wavfile.read(data_folder+wav_lst_te[i])
-                # signal=signal.astype(float)/32768
-
                 [signal, fs] = sf.read(os.path.join(data_folder, wav_lst_te[i]))
 
                 signal = torch.from_numpy(signal).float().cuda().contiguous()
+                # Get the label of the test set file
                 lab_batch = lab_dict[wav_lst_te[i]]
 
                 # split signals into chunks
                 beg_samp = 0
                 end_samp = wlen
 
-                N_fr = int((signal.shape[0] - wlen) / (wshift))
+                num_frames = int((signal.shape[0] - wlen) / (wshift))
 
-                sig_arr = np.zeros([Batch_dev, wlen])
-                lab = Variable((torch.zeros(N_fr + 1) + lab_batch).cuda().contiguous().long())
-                pout = Variable(torch.zeros(N_fr + 1, class_lay[-1]).float().cuda().contiguous())
+                sig_arr = torch.zeros([Batch_dev, wlen], dtype=torch.float32, device=torch.device('cuda:0'))
+                expected_label = Variable((torch.zeros(num_frames + 1) + lab_batch).cuda().contiguous().long())
+                pout = Variable(torch.zeros(num_frames + 1, class_lay[-1]).float().cuda().contiguous())
                 count_fr = 0
                 count_fr_tot = 0
                 while end_samp < signal.shape[0]:
-                    sig_arr[count_fr, :] = signal[beg_samp:end_samp].cpu()
+                    sig_arr[count_fr, :] = signal[beg_samp:end_samp]
                     beg_samp = beg_samp + wshift
                     end_samp = beg_samp + wlen
                     count_fr = count_fr + 1
                     count_fr_tot = count_fr_tot + 1
                     if count_fr == Batch_dev:
-                        inp = Variable(torch.from_numpy(sig_arr).float().cuda().contiguous())
+                        inp = Variable(sig_arr.contiguous())
                         pout[count_fr_tot - Batch_dev:count_fr_tot, :] = DNN2_net(DNN1_net(CNN_net(inp)))
                         count_fr = 0
-                        sig_arr = np.zeros([Batch_dev, wlen])
+                        sig_arr = torch.zeros([Batch_dev, wlen], dtype=torch.float32, device=torch.device('cuda:0'))
 
                 if count_fr > 0:
-                    inp = Variable(torch.from_numpy(sig_arr[0:count_fr]).float().cuda().contiguous())
+                    inp = Variable(sig_arr[0:count_fr].contiguous())
                     pout[count_fr_tot - count_fr:count_fr_tot, :] = DNN2_net(DNN1_net(CNN_net(inp)))
 
                 pred = torch.max(pout, dim=1)[1]
-                loss = cost(pout, lab.long())
-                err = torch.mean((pred != lab.long()).float())
+                loss = cost(pout, expected_label.long())
+                err = torch.mean((pred != expected_label.long()).float())
 
                 [val, best_class] = torch.max(torch.sum(pout, dim=0), 0)
-                err_sum_snt = err_sum_snt + (best_class != lab[0]).float()
+                sentence_errors = sentence_errors + (best_class != expected_label[0]).float()
 
                 loss_sum = loss_sum + loss.detach()
-                err_sum = err_sum + err.detach()
+                frame_errors_dev = frame_errors_dev + err.detach()
 
-            err_tot_dev_snt = err_sum_snt / snt_te
-            loss_tot_dev = loss_sum / snt_te
-            err_tot_dev = err_sum / snt_te
+            sentence_error_rate = sentence_errors / snt_te
+            average_loss_dev = loss_sum / snt_te
+            frame_error_rate_dev = frame_errors_dev / snt_te
 
-        print("epoch %i, loss_tr=%f err_tr=%f loss_te=%f err_te=%f err_te_snt=%f" % (
-        epoch, loss_tot, err_tot, loss_tot_dev, err_tot_dev, err_tot_dev_snt))
+        print("epoch %i, average_loss_train=%f frame_error_rate_train=%f average_loss_dev=%f "
+              "frame_error_rate_dev=%f sentence_error_rate=%f" % (
+            epoch, average_loss_train, frame_error_rate_train, average_loss_dev, frame_error_rate_dev,
+            sentence_error_rate))
 
-        with open(os.path.join(output_folder, "res.res"), "a") as res_file:
-            res_file.write("epoch %i, loss_tr=%f err_tr=%f loss_te=%f err_te=%f err_te_snt=%f\n" % (
-            epoch, loss_tot, err_tot, loss_tot_dev, err_tot_dev, err_tot_dev_snt))
+        with open(tracking_text_file, "a") as res_file:
+            res_file.write("epoch %i, average_loss_train=%f frame_error_rate_train=%f average_loss_dev=%f "
+                           "frame_error_rate_dev=%f sentence_error_rate=%f\n" % (
+                epoch, average_loss_train, frame_error_rate_train, average_loss_dev, frame_error_rate_dev,
+                sentence_error_rate))
 
         checkpoint = {'CNN_model_par': CNN_net.state_dict(),
                       'DNN1_model_par': DNN1_net.state_dict(),
                       'DNN2_model_par': DNN2_net.state_dict(),
                       }
 
-        # print(f"Saving Model (Epoch {epoch}")
-        # torch.save(checkpoint, os.path.join(output_folder, 'model_raw.pkl'))
-
         # Save model with lowest dev_loss
-        if loss_tot_dev < lowest_dev_loss:
-            print("Saving lowest loss model on epoch" + epoch)
-            lowest_dev_loss = loss_tot_dev
-            torch.save(checkpoint, os.path.join(output_folder, f'epoch_{epoch}_model_lowest_dev_loss.pkl'))
+        if sentence_error_rate < lowest_sentence_error_rate:
+            with open(tracking_text_file, "a") as res_file:
+                res_file.write(f"Saving lowest sentence error rate model on epoch {epoch}")
+
+            lowest_sentence_error_rate = sentence_error_rate
+            torch.save(checkpoint, os.path.join(output_folder, 'model_lowest_sentence_error_rate.pkl'))
 
     else:
-        print("epoch %i, loss_tr=%f err_tr=%f" % (epoch, loss_tot, err_tot))
+        print("epoch %i, loss_tr=%f err_tr=%f" % (epoch, average_loss_train, frame_error_rate_train))

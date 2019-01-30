@@ -10,6 +10,7 @@ OUTPUT_DIR = 'wakeword_file_lists'
 UTTERANCE_COUNT_THRESHOLD = 10  # Min utterances for a speaker to be used
 UTTERANCE_TRAIN_COUNT = 6
 
+ENROLLMENT_TRAIN_COUNT = 447
 
 def get_all_files_recursive(root_dir):
     file_set = set()
@@ -34,7 +35,6 @@ def get_hey_webex_balanced(file_set):
 
     # Get the speaker ID which is 2-letter initial followed by 3-digit number
     speaker_ids = [x.split('-')[1] for x in hey_webex_files]
-    speaker_counts = Counter(speaker_ids)
 
     # Organize files by speaker
     speaker_id_to_files = defaultdict(list)
@@ -83,7 +83,6 @@ def get_okay_webex_balanced(file_set):
 
     # Get the speaker ID which is 2-letter initial followed by 3-digit number
     speaker_ids = [x.split('-')[1] for x in okay_webex_files]
-    speaker_counts = Counter(speaker_ids)
 
     # Organize files by speaker
     speaker_id_to_files = defaultdict(list)
@@ -105,7 +104,6 @@ def get_okay_webex_balanced(file_set):
             train_split = selected_files[:UTTERANCE_TRAIN_COUNT]
             test_split = selected_files[UTTERANCE_TRAIN_COUNT:]
 
-            print(len(train_split), len(test_split))
             okay_webex_train.extend(train_split)
             okay_webex_test.extend(test_split)
 
@@ -123,6 +121,81 @@ def get_okay_webex_balanced(file_set):
 
     selected_files = okay_webex_train + okay_webex_test
     generate_label_dict(selected_files, "okay_webex_label_dict.npy")
+    print(get_unique_items(os.path.join(OUTPUT_DIR, "okay_webex_label_dict.npy")))
+
+def get_okay_webex_enrollment_data_lists(file_set):
+
+    okay_webex_files = [x for x in file_set if 'okay_webex' in x and ".wav" in x]
+    speaker_ids = [x.split('-')[1] for x in okay_webex_files]
+
+    # Organize files by speaker
+    speaker_id_to_files = defaultdict(list)
+    for f in okay_webex_files:
+        speaker = f.split('-')[1]
+        speaker_id_to_files[speaker].append(f)
+
+    valid_speaker_ids = [speaker_id for speaker_id, files in speaker_id_to_files.items()
+                         if len(files) > UTTERANCE_COUNT_THRESHOLD]
+
+    random.shuffle(valid_speaker_ids)
+
+    # Separate training and test speakers
+    enrollment_train_ids = set(valid_speaker_ids[:ENROLLMENT_TRAIN_COUNT])
+    enrollment_test_ids = set(valid_speaker_ids[ENROLLMENT_TRAIN_COUNT:])
+
+    # For each speaker in enrollment_train, 6 queries go to training and 4 queries go to dev for parameter optimization
+    train_enrollment = []
+    dev_enrollment = []
+
+    # For each speaker in test, 6 queries used to generate the d-vector and 4 used for testing (nearest neighbor)
+    test_queries_seen = []
+    test_queries_unseen = []
+
+    for id in enrollment_train_ids:
+        files = speaker_id_to_files[id]
+
+        random.shuffle(files)
+        selected_files = files[:UTTERANCE_COUNT_THRESHOLD]
+        train_split = selected_files[:UTTERANCE_TRAIN_COUNT]
+        test_split = selected_files[UTTERANCE_TRAIN_COUNT:]
+
+        train_enrollment.extend(train_split)
+        dev_enrollment.extend(test_split)
+
+    for id in enrollment_test_ids:
+        files = speaker_id_to_files[id]
+
+        random.shuffle(files)
+        selected_files = files[:UTTERANCE_COUNT_THRESHOLD]
+        train_split = selected_files[:UTTERANCE_TRAIN_COUNT]
+        test_split = selected_files[UTTERANCE_TRAIN_COUNT:]
+
+        test_queries_seen.extend(train_split)
+        test_queries_unseen.extend(test_split)
+
+    print(len(train_enrollment), len(dev_enrollment), len(test_queries_seen), len(test_queries_unseen))
+
+    with open(os.path.join(OUTPUT_DIR, 'okay_webex_enrollment_train.txt'), 'w') as f:
+        for item in train_enrollment:
+            f.write("%s\n" % item)
+
+    with open(os.path.join(OUTPUT_DIR, 'okay_webex_enrollment_dev.txt'), 'w') as f:
+        for item in dev_enrollment:
+            f.write("%s\n" % item)
+
+    # Queries from users that the network does not train with, used to generate a corresponding d-vector
+    with open(os.path.join(OUTPUT_DIR, 'okay_webex_enrollment_test_seen.txt'), 'w') as f:
+        for item in test_queries_seen:
+            f.write("%s\n" % item)
+
+    # Queries used for evaluation on d-vectors
+    with open(os.path.join(OUTPUT_DIR, 'okay_webex_enrollment_test_unseen.txt'), 'w') as f:
+        for item in test_queries_unseen:
+            f.write("%s\n" % item)
+
+    selected_files = train_enrollment + dev_enrollment
+    generate_label_dict(selected_files, "okay_webex_label_dict_enrollment.npy")
+    print(get_unique_items(os.path.join(OUTPUT_DIR, "okay_webex_label_dict_enrollment.npy")))
 
 
 def get_unique_items(label_dict_file):
@@ -158,4 +231,6 @@ if __name__ == '__main__':
     file_set = get_all_files_recursive('/mnt/extradrive2/wakeword_data/')
 
     get_okay_webex_balanced(file_set)
-    get_hey_webex_balanced(file_set)
+    # get_hey_webex_balanced(file_set)
+
+    # get_okay_webex_enrollment_data_lists(file_set)
