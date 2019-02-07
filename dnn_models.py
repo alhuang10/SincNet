@@ -198,33 +198,40 @@ class MLP(nn.Module):
                     # From right to left
                     # Linear layer -> layer normalization -> activation -> dropout
                     hidden_state = self.wx[i](x)
-                    x = self.drop[i](self.act[i](self.ln[i](hidden_state)))
+                    actviated_normalized_hidden_state = self.act[i](self.ln[i](hidden_state))
+                    x = self.drop[i](actviated_normalized_hidden_state)
 
                 if self.fc_use_batchnorm[i]:
                     # Same as above but with batch normalization instead of linear
                     hidden_state = self.wx[i](x)
-                    x = self.drop[i](self.act[i](self.bn[i](hidden_state)))
+                    actviated_normalized_hidden_state = self.act[i](self.bn[i](hidden_state))
+                    x = self.drop[i](actviated_normalized_hidden_state)
 
                 if self.fc_use_batchnorm[i] == False and self.fc_use_laynorm[i] == False:
                     # Neither
                     hidden_state = self.wx[i](x)
-                    x = self.drop[i](self.act[i](hidden_state))
+                    actviated_normalized_hidden_state = self.act[i](hidden_state)
+                    x = self.drop[i](actviated_normalized_hidden_state)
 
+                hidden_states.append(actviated_normalized_hidden_state)
             else:
                 # This branch skips the activation step if we choose 'linear' activation
                 if self.fc_use_laynorm[i]:
                     hidden_state = self.wx[i](x)
-                    x = self.drop[i](self.ln[i](hidden_state))
+                    normalized_hidden_state = self.ln[i](hidden_state)
+                    x = self.drop[i](normalized_hidden_state)
 
                 if self.fc_use_batchnorm[i]:
                     hidden_state = self.wx[i](x)
-                    x = self.drop[i](self.bn[i](hidden_state))
+                    normalized_hidden_state = self.bn[i](hidden_state)
+                    x = self.drop[i](normalized_hidden_state)
 
                 if self.fc_use_batchnorm[i] == False and self.fc_use_laynorm[i] == False:
                     hidden_state = self.wx[i](x)
-                    x = self.drop[i](hidden_state)
-                    
-            hidden_states.append(hidden_state)
+                    normalized_hidden_state = hidden_state
+                    x = self.drop[i](normalized_hidden_state)
+
+                hidden_states.append(normalized_hidden_state)
 
         if self.fc_return_hidden_layer:
             return x, hidden_states[-1]

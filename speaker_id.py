@@ -247,7 +247,7 @@ for epoch in range(N_epochs):
     frame_error_rate_train = frame_errors_train / N_batches
 
     # Full Validation
-    if epoch % N_eval_epoch == 0:
+    if epoch % N_eval_epoch == 0 and epoch != 0:
 
         CNN_net.eval()
         DNN1_net.eval()
@@ -326,9 +326,10 @@ for epoch in range(N_epochs):
         # Save model with lowest dev_loss
         if sentence_error_rate < lowest_sentence_error_rate:
             with open(tracking_text_file, "a") as res_file:
-                res_file.write(f"Saving lowest sentence error rate model on epoch {epoch}")
+                res_file.write(f"Saving lowest sentence error rate model on epoch {epoch}\n")
 
             lowest_sentence_error_rate = sentence_error_rate
+            print("Lowest sentence error rate", lowest_sentence_error_rate)
             torch.save(checkpoint, os.path.join(output_folder, 'model_lowest_sentence_error_rate.pkl'))
 
     else:
