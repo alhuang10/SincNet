@@ -152,9 +152,6 @@ CNN_net.cuda()
 # Loading label dictionary
 label_dict = np.load(class_dict_file).item()
 
-# assert class_lay[0] == len(set(list(label_dict.values()))), \
-#     f"class_lay param must be equal to number of unique speakers: {len(set(list(label_dict.values())))}"
-
 DNN1_arch = {'input_dim': CNN_net.out_dim,
              'fc_lay': fc_lay,
              'fc_drop': fc_drop,

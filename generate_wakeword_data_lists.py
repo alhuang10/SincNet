@@ -291,10 +291,9 @@ def generate_enrollment_list(file_set, utterance_text,
         unseen_str = "seen"
 
     # Directory name includes threshold/training counts
-    specific_output_directory = \
-        os.path.join(OUTPUT_DIR,
-                     f"only_enrollment_{utterance_text}_{count_threshold}_" +
-                     f"threshold_{train_count}_train_count_{num_unique_ids}_unique_speakers_{unseen_str}")
+    directory_name = f"only_enrollment_{utterance_text}_{count_threshold}_" \
+        f"threshold_{train_count}_train_count_{num_unique_ids}_unique_speakers_{unseen_str}"
+    specific_output_directory = os.path.join(OUTPUT_DIR, directory_name)
 
     if not os.path.exists(specific_output_directory):
         os.mkdir(specific_output_directory)
@@ -341,22 +340,31 @@ def generate_enrollment_list(file_set, utterance_text,
     selected_test_files = test_queries_seen + test_queries_unseen
     generate_label_dict(selected_test_files, specific_output_directory, "label_dict_enrollment_test.npy")
 
+    print("Output folder")
+    print(directory_name)
+
 
 if __name__ == '__main__':
-    UTTERANCE_COUNT_THRESHOLD = 30  # Min utterances for a speaker to be used
-    UTTERANCE_TRAIN_COUNT = 25
+    # UTTERANCE_COUNT_THRESHOLD = 10  # Min utterances for a speaker to be used
+    # UTTERANCE_TRAIN_COUNT = 6  # Number of files to use for training/enrollment vector generation depending
+
     ENROLLMENT_TRAIN_FRACTION = 0.8
-    random.seed(UTTERANCE_COUNT_THRESHOLD*UTTERANCE_TRAIN_COUNT)
+    # random.seed(UTTERANCE_COUNT_THRESHOLD*UTTERANCE_TRAIN_COUNT)
 
     file_set = get_all_files_recursive('/mnt/extradrive2/wakeword_data/')
 
     # get_softmax_training_data_lists(file_set, "okay_webex", 30, 25)
     # get_enrollment_training_data_lists(file_set, "okay_webex", 30, 25, .8)
 
-    generate_enrollment_list(file_set,
-                             "okay_webex",
-                             "wakeword_file_lists/enrollment_30_threshold_25_train_count/enrollment_test_ids.p",
-                             "True",
-                             30,
-                             25,
-                             30)
+    UNIQUE_SPEAKERS = 100
+
+    for count, train in zip([30, 15, 10], [25, 10, 6]):
+        random.seed(count*train)
+
+        generate_enrollment_list(file_set,
+                                 "okay_webex",
+                                 "wakeword_file_lists/enrollment_10_threshold_6_train_count/enrollment_test_ids.p",
+                                 "True",
+                                 count,  # Count threshold
+                                 train,  # Queries used for d-vector generation
+                                 UNIQUE_SPEAKERS)  # Num unique speakers to use
