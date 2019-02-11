@@ -1,6 +1,6 @@
 # Wakeword Data Preprocessing Steps
 
-1. Run ```generate_wakeword_data_lists.py``` to get test/train/all lists of files with "hey_webex" and "okay_webex". Create new functions for getting different phrases as well as a label dictionary mapping file to a unique ID for each speaker.
+1. Run ```generate_wakeword_data_lists.py``` to get test/train/all lists of files with a given phrase (e.g. "okay_webex") and a corresponding label dictionary mapping each file to a unique ID representing the speaker.
 
 2. Run ```wakeword_data_prep.py``` to perform normalization and trim the beginning and end silence for each sound file. Must specify the time_align files to use in the CSV_PATHS variable.
 
